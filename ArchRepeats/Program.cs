@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace ArchRepeats
@@ -26,6 +24,25 @@ namespace ArchRepeats
             {
                 Console.WriteLine($"Specified dir '{dir}' does not exist.");
                 return BadResult;
+            }
+
+            var dirArch = $@"{dir}\arc\";
+            if (args.Length > 1)
+            {
+                dirArch = args[1];
+            }
+
+            if (!Directory.Exists(dirArch))
+            {
+                try
+                {
+                    Directory.CreateDirectory(dirArch);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    return BadResult;
+                }
             }
 
             var hashDir = new ConcurrentDictionary<string, ConcurrentStack<string>>();
@@ -62,11 +79,26 @@ namespace ArchRepeats
                 }
             }
 
-            Console.WriteLine("List of files to arch:");
-            foreach (var fArch in hashDir.Values.SelectMany(x => x.Skip(1)))
-            {
-                Console.WriteLine($"  {fArch}");
-            }
+            var filesToArch = new ConcurrentStack<string>(hashDir.Values.SelectMany(x => x.Skip(1)));
+
+            Console.WriteLine("File moving:");
+            Parallel.ForEach(filesToArch,
+                sourceFileName =>
+                {
+                    var slashPos = sourceFileName.LastIndexOf(@"\", StringComparison.Ordinal);
+                    var fileName = sourceFileName.Substring(slashPos + 1);
+                    var destFileName = dirArch + fileName;
+                    try
+                    {
+                        File.Move(sourceFileName, destFileName);
+                        Console.WriteLine($"from: {sourceFileName}\n\t" +
+                                          $"to: {destFileName}");
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Can not move file '{sourceFileName}', because of '{e.Message}'");
+                    }
+                });
 
             Console.ReadKey();
 
